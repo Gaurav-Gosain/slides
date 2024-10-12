@@ -1,6 +1,7 @@
 package code
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"os/exec"
@@ -8,6 +9,9 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/charmbracelet/lipgloss"
+	"github.com/mdp/qrterminal/v3"
 )
 
 // Block represents a code block.
@@ -26,12 +30,10 @@ type Result struct {
 // ?: means non-capture group
 var re = regexp.MustCompile("(?s)(?:```|~~~)(\\w+)\n(.*?)\n(?:```|~~~)\\s?")
 
-var (
-	// ErrParse is the returned error when we cannot parse the code block (i.e.
-	// there is no code block on the current slide) or the code block is
-	// incorrectly written.
-	ErrParse = errors.New("Error: could not parse code block")
-)
+// ErrParse is the returned error when we cannot parse the code block (i.e.
+// there is no code block on the current slide) or the code block is
+// incorrectly written.
+var ErrParse = errors.New("Error: could not parse code block")
 
 // Parse takes a block of markdown and returns an array of Block's with code
 // and associated languages
@@ -67,6 +69,51 @@ const (
 
 // Execute takes a code.Block and returns the output of the executed code
 func Execute(code Block) Result {
+	if code.Language == "qr" {
+
+		qrCodesURLs := strings.Split(code.Code, "\n")
+
+		qrCodes := make([]string, len(qrCodesURLs))
+
+		for i, qrCode := range qrCodesURLs {
+			var buff bytes.Buffer
+
+			config := qrterminal.Config{
+				Level:          qrterminal.L,
+				Writer:         &buff,
+				HalfBlocks:     true,
+				BlackChar:      qrterminal.BLACK_BLACK,
+				WhiteBlackChar: qrterminal.WHITE_BLACK,
+				WhiteChar:      qrterminal.WHITE_WHITE,
+				BlackWhiteChar: qrterminal.BLACK_WHITE,
+				QuietZone:      1,
+			}
+
+			qrterminal.GenerateWithConfig(
+				strings.TrimSpace(qrCode),
+				config,
+			)
+
+			qrCodes[i] = lipgloss.
+				NewStyle().
+				PaddingRight(8).
+				Render(
+					lipgloss.JoinVertical(
+						lipgloss.Center,
+						buff.String(),
+						lipgloss.NewStyle().Foreground(lipgloss.Color("#4169E1")).Render(qrCode),
+					),
+				)
+		}
+
+		qrCodeString := lipgloss.JoinHorizontal(lipgloss.Left, qrCodes...)
+
+		return Result{
+			Out:      qrCodeString,
+			ExitCode: 0,
+		}
+	}
+
 	// Check supported language
 	language, ok := Languages[code.Language]
 	if !ok {
@@ -77,7 +124,8 @@ func Execute(code Block) Result {
 	}
 
 	// Write the code block to a temporary file
-	f, err := os.CreateTemp(os.TempDir(), "slides-*."+Languages[code.Language].Extension)
+	codeDir := os.TempDir()
+	f, err := os.CreateTemp(codeDir, "slides-*."+Languages[code.Language].Extension)
 	if err != nil {
 		return Result{
 			Out:      "Error: could not create file",
@@ -114,6 +162,7 @@ func Execute(code Block) Result {
 	start := time.Now()
 
 	for _, c := range language.Commands {
+
 		var command []string
 		// replace <file>, <name> and <path> in commands
 		for _, v := range c {
@@ -121,6 +170,7 @@ func Execute(code Block) Result {
 		}
 		// execute and write output
 		cmd := exec.Command(command[0], command[1:]...)
+		cmd.Dir = codeDir
 		out, err := cmd.Output()
 		if err != nil {
 			output.Write([]byte(err.Error()))

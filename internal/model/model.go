@@ -152,6 +152,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+n":
 			// Go to next occurrence
 			m.Search.Execute(&m)
+		case "ctrl+x":
+			m.VirtualText = ""
 		case "ctrl+e":
 			// Run code blocks
 			blocks, err := code.Parse(m.Slides[m.Page])
@@ -165,7 +167,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				res := code.Execute(block)
 				outs = append(outs, res.Out)
 			}
-			m.VirtualText = strings.Join(outs, "\n")
+			m.VirtualText = strings.TrimSpace(strings.Join(outs, "\n"))
 		case "y":
 			blocks, err := code.Parse(m.Slides[m.Page])
 			if err != nil {
