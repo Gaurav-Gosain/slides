@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/maaslalani/slides/internal/code"
+	"github.com/maaslalani/slides/internal/term"
 )
 
 func TestExecute(t *testing.T) {
@@ -62,7 +63,7 @@ func main() {
 	}
 
 	for _, tc := range tt {
-		r := code.Execute(tc.block)
+		r := code.Execute(tc.block, term.Other, 0)
 		if r.Out != tc.expected.Out {
 			t.Fatalf("invalid output for lang %s, got %s, want %s | %+v",
 				tc.block.Language, r.Out, tc.expected.Out, r)

@@ -1,22 +1,30 @@
 ---
 author: GoUAE
+theme: ./examples/theme.json
 ---
 
-# Introduction to Go (Golang)
+![GoUAE](/home/gaurav/dev/slides/examples/assets/intro-slide.png)
 
-## A Beginner's Guide
+<!--
+- name
+- bsc graduate in comp sci with an hons specializing in Artificial Intelligence
+- application analyst at Zurich Insurance Dubai
+- community leader for the GoUAE community under chq which is a gov initiative for coders in the middle east
+-->
 
-### GoUAE Community Event
+---
+
+![Agenda](/home/gaurav/dev/slides/examples/assets/agenda.png)
+
+---
+
+![Topics](/home/gaurav/dev/slides/examples/assets/topics.png)
 
 ---
 
 # What is Go?
 
-## A statically typed, compiled programming language
-
-## Created by Google in 2007, publicly released in 2009
-
-## Designed for simplicity, efficiency, and productivity
+## A Hello World program in Go
 
 ```go
 package main
@@ -24,9 +32,25 @@ package main
 import "fmt"
 
 func main() {
-    fmt.Println("Hello, GoUAE!")
+  fmt.Println("Hello, GoUAE!")
 }
 ```
+
+### A statically typed, compiled programming language
+
+### Created by Google in 2007, publicly released in 2009
+
+### Designed for simplicity, efficiency, and productivity
+
+---
+
+# The creators of Go
+
+## Robert Griesemer
+
+## Rob Pike
+
+## Ken Thompson
 
 ---
 
@@ -76,6 +100,8 @@ func main() {
 
 ## Growing ecosystem
 
+## Excellent tooling
+
 ---
 
 # Go in Industry: Use Cases
@@ -106,9 +132,35 @@ func main() {
 
 ## Twitch
 
+## Microsoft
+
+## Amazon
+
 ## Docker
 
 ## Kubernetes
+
+---
+
+# Popular Tools written in Go
+
+## Go itself! Yes the Go compiler itself is written in Go
+
+## Docker - Container platform
+
+## Kubernetes - Container orchestration system
+
+## Prometheus - Monitoring and alerting toolkit
+
+## Hugo - Static site generator
+
+## Terraform - Infrastructure as code tool
+
+## CockroachDB - Distributed SQL database
+
+## Caddy - Web server with automatic HTTPS
+
+## InfluxDB - Time series database used for metrics, events, and analytics
 
 ---
 
@@ -128,33 +180,11 @@ func main() {
 
 ---
 
-# Go's Adoption
-
-## TIOBE Index
-
-Top 20 programming language
-
-## Stack Overflow Developer Survey
-
-Rising popularity
-
-## GitHub
-
-Significant growth in repositories
-
-## Increasing demand in job market
-
----
-
-# Getting Started with Go (1/4)
+# Getting Started with Go
 
 ## Download [go.dev](https://go.dev/dl/) and Install Go [go.dev](https://go.dev/doc/install/)
 
 > Or use your favorite package manager
-
----
-
-# Getting Started with Go (2/4)
 
 ## Set up your workspace
 
@@ -164,10 +194,6 @@ cd gouae
 go mod init gouae
 touch filename.go
 ```
-
----
-
-# Getting Started with Go (3/4)
 
 ## Write your first program:
 
@@ -180,10 +206,6 @@ func main() {
     fmt.Println("Hello, GoUAE!")
 }
 ```
-
----
-
-# Getting Started with Go (4/4)
 
 ## Run with `go run filename.go`
 
@@ -201,18 +223,13 @@ func main() {
 
 # Resources for Learning Go
 
-## [Official Go documentation](https://go.dev/doc)
-
-## [Tour of Go](https://go.dev/tour/list)
-
-## [Go by Example](https://gobyexample.com)
-
-## [Effective Go](https://go.dev/doc/effective_go)
-
-## [GoUAE community events and workshops](https://golang.ae)
+- [Official Go documentation](https://go.dev/doc)
+- [Tour of Go](https://go.dev/tour/list)
+- [Go by Example](https://gobyexample.com)
+- [Effective Go](https://go.dev/doc/effective_go)
+- [GoUAE community events and workshops](https://golang.ae)
 
 ```qr
-///https://go.dev/doc
 ///https://go.dev/tour/list
 ///https://gobyexample.com
 ///https://go.dev/doc/effective_go
@@ -227,7 +244,7 @@ func main() {
 Join the GoUAE community for more Go programming events and discussions!
 
 ```qr
-///https://golang.ae
+///https://golang.ae/github
 ///https://golang.ae/whatsapp
 ///https://golang.ae/discord
 ```

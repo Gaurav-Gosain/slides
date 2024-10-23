@@ -3,6 +3,8 @@ package code
 import (
 	"bytes"
 	"errors"
+	"fmt"
+	"image"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,7 +12,11 @@ import (
 	"strings"
 	"time"
 
+	_ "image/jpeg"
+	_ "image/png"
+
 	"github.com/charmbracelet/lipgloss"
+	"github.com/maaslalani/slides/internal/term"
 	"github.com/mdp/qrterminal/v3"
 )
 
@@ -67,10 +73,62 @@ const (
 	ExitCodeInternalError = -1
 )
 
-// Execute takes a code.Block and returns the output of the executed code
-func Execute(code Block) Result {
-	if code.Language == "qr" {
+func RenderImage(img image.Image, terminal term.TerminalProtocol, availableCells int, width int) string {
+	var buff bytes.Buffer
 
+	aspectRatio := 2.2 * float64(img.Bounds().Dx()) / float64(img.Bounds().Dy())
+
+	rows := float64(availableCells)
+	cols := float64(rows) * aspectRatio
+
+	if cols > float64(width) {
+		cols = float64(width)
+		// recalculate rows
+		rows = cols / aspectRatio
+	}
+
+	switch terminal {
+	case term.Kitty:
+		// Kitty options
+		kittyImgOpts := term.KittyImgOpts{
+			DstRows: uint32(rows),
+			DstCols: uint32(cols),
+		}
+		term.KittyWriteImage(&buff, img, kittyImgOpts)
+	case term.Iterm:
+		// iTerm options
+		itermOpts := term.ItermImgOpts{
+			Height: fmt.Sprint(rows),
+			Width:  fmt.Sprint(cols),
+		}
+		term.ItermWriteImageWithOptions(&buff, img, itermOpts)
+	default:
+		// 	ansi art
+	}
+	return buff.String()
+}
+
+// Execute takes a code.Block and returns the output of the executed code
+func Execute(code Block, terminal term.TerminalProtocol, availableCells int, width int) Result {
+	if code.Language == "img" {
+		f, err := os.Open(code.Code)
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+
+		img, _, err := image.Decode(f)
+		if err != nil {
+			panic(err)
+		}
+
+		return Result{
+			Out:      RenderImage(img, terminal, availableCells, width),
+			ExitCode: 0,
+		}
+	}
+
+	if code.Language == "qr" {
 		qrCodesURLs := strings.Split(code.Code, "\n")
 
 		qrCodes := make([]string, len(qrCodesURLs))
@@ -99,7 +157,7 @@ func Execute(code Block) Result {
 				PaddingRight(8).
 				Render(
 					lipgloss.JoinVertical(
-						lipgloss.Center,
+						lipgloss.Left,
 						buff.String(),
 						lipgloss.NewStyle().Foreground(lipgloss.Color("#4169E1")).Render(qrCode),
 					),

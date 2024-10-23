@@ -12,6 +12,7 @@ import (
 	"github.com/maaslalani/slides/internal/model"
 	"github.com/maaslalani/slides/internal/navigation"
 	"github.com/maaslalani/slides/internal/server"
+	"github.com/maaslalani/slides/internal/term"
 	"github.com/muesli/coral"
 )
 
@@ -48,11 +49,19 @@ var ServeCmd = &coral.Command{
 			fileName = args[0]
 		}
 
+		protocol := term.Other
+		if term.IsKittyCapable() {
+			protocol = term.Kitty
+		} else if term.IsItermCapable() {
+			protocol = term.Iterm
+		}
+
 		presentation := model.Model{
-			Page:     0,
-			Date:     time.Now().Format("2006-01-02"),
-			FileName: fileName,
-			Search:   navigation.NewSearch(),
+			Page:             0,
+			Date:             time.Now().Format("2006-01-02"),
+			FileName:         fileName,
+			Search:           navigation.NewSearch(),
+			TerminalProtocol: protocol,
 		}
 		err = presentation.Load()
 		if err != nil {

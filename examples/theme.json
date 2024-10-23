@@ -19,22 +19,22 @@
     "bold": true
   },
   "h1": {
-    "prefix": "CUSTOM ",
+    "prefix": " ",
     "suffix": " ",
     "color": "#fa0",
     "bold": true
   },
   "h2": {
-    "prefix": "▓▓▓ ",
+    "prefix": "█ ",
     "color": "#1cc"
   },
   "h3": {
-    "prefix": "▒▒▒▒ ",
+    "prefix": "██ ",
     "color": "#29c"
   },
   "h4": {
     "color": "#559",
-    "prefix": "░░░░░ "
+    "prefix": "███ "
   },
   "h5": {},
   "h6": {},

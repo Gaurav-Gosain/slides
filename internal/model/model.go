@@ -5,19 +5,26 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"image"
+	"image/color"
+	"image/draw"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/atotto/clipboard"
+	"github.com/golang/freetype"
 	"github.com/maaslalani/slides/internal/file"
 	"github.com/maaslalani/slides/internal/navigation"
 	"github.com/maaslalani/slides/internal/process"
+	"github.com/maaslalani/slides/internal/term"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/maaslalani/slides/internal/code"
 	"github.com/maaslalani/slides/internal/meta"
 	"github.com/maaslalani/slides/styles"
@@ -47,8 +54,9 @@ type Model struct {
 	buffer   string
 	// VirtualText is used for additional information that is not part of the
 	// original slides, it will be displayed on a slide and reset on page change
-	VirtualText string
-	Search      navigation.Search
+	VirtualText      string
+	Search           navigation.Search
+	TerminalProtocol term.TerminalProtocol
 }
 
 type fileWatchMsg struct{}
@@ -62,7 +70,8 @@ func (m Model) Init() tea.Cmd {
 		return nil
 	}
 	fileInfo, _ = os.Stat(m.FileName)
-	return fileWatchCmd()
+	// return fileWatchCmd()
+	return nil
 }
 
 func fileWatchCmd() tea.Cmd {
@@ -109,12 +118,48 @@ func (m *Model) Load() error {
 	return nil
 }
 
+func (m *Model) ExecuteCode() {
+	// Run code blocks
+	blocks, err := code.Parse(m.Slides[m.Page])
+	if err != nil {
+		// We couldn't parse the code block on the screen
+		m.VirtualText = "\n" + err.Error()
+		return
+	}
+	var outs []string
+
+	for _, block := range blocks {
+		res := code.Execute(
+			block,
+			m.TerminalProtocol,
+			m.GetAvailableCells(),
+			m.viewport.Width,
+		)
+		outs = append(outs, res.Out)
+	}
+	m.VirtualText = strings.TrimSpace(strings.Join(outs, "\n"))
+}
+
+type autoExecuteCodeMsg struct{}
+
 // Update updates the presentation model.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.viewport.Width = msg.Width
 		m.viewport.Height = msg.Height
+		m.VirtualText = ""
+		return m, ClearScreen
+
+	case clearScreenMsg:
+		m.VirtualText = ""
+
+		return m, tea.Sequence(tea.ClearScreen, func() tea.Msg {
+			return autoExecuteCodeMsg{}
+		})
+
+	case autoExecuteCodeMsg:
+		m.AutoExecuteCode()
 		return m, nil
 
 	case tea.KeyMsg:
@@ -154,20 +199,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Search.Execute(&m)
 		case "ctrl+x":
 			m.VirtualText = ""
+			return m, ClearScreen
 		case "ctrl+e":
-			// Run code blocks
-			blocks, err := code.Parse(m.Slides[m.Page])
-			if err != nil {
-				// We couldn't parse the code block on the screen
-				m.VirtualText = "\n" + err.Error()
-				return m, nil
-			}
-			var outs []string
-			for _, block := range blocks {
-				res := code.Execute(block)
-				outs = append(outs, res.Out)
-			}
-			m.VirtualText = strings.TrimSpace(strings.Join(outs, "\n"))
+			m.ExecuteCode()
+			return m, nil
 		case "y":
 			blocks, err := code.Parse(m.Slides[m.Page])
 			if err != nil {
@@ -186,7 +221,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				TotalSlides: len(m.Slides),
 			}, keyPress)
 			m.buffer = newState.Buffer
-			m.SetPage(newState.Page)
+			return m, m.SetPage(newState.Page)
 		}
 
 	case fileWatchMsg:
@@ -203,20 +238,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// View renders the current slide in the presentation and the status bar which
-// contains the author, date, and pagination information.
-func (m Model) View() string {
+func (m Model) GetAvailableCells() int {
+	slide, _ := m.GetSlide()
+	return m.viewport.Height - lipgloss.Height(slide) - lipgloss.Height(m.GetStatusLine())
+}
+
+func (m Model) GetSlide() (string, bool) {
 	r, _ := glamour.NewTermRenderer(m.Theme, glamour.WithWordWrap(m.viewport.Width))
 	slide := m.Slides[m.Page]
 	slide = code.HideComments(slide)
+	header, slide := m.preprocessHeaders(slide)
 	slide, err := r.Render(slide)
 	slide = strings.ReplaceAll(slide, "\t", tabSpaces)
 	slide += m.VirtualText
 	if err != nil {
 		slide = fmt.Sprintf("Error: Could not render markdown! (%v)", err)
 	}
-	slide = styles.Slide.Render(slide)
+	return header + styles.Slide.Render(slide), header != ""
+}
 
+func (m Model) GetStatusLine() string {
 	var left string
 	if m.Search.Active {
 		// render search bar
@@ -227,8 +268,23 @@ func (m Model) View() string {
 	}
 
 	right := styles.Page.Render(m.paging())
-	status := styles.Status.Render(styles.JoinHorizontal(left, right, m.viewport.Width))
-	return styles.JoinVertical(slide, status, m.viewport.Height)
+	return styles.Status.Render(styles.JoinHorizontal(left, right, m.viewport.Width))
+}
+
+// View renders the current slide in the presentation and the status bar which
+// contains the author, date, and pagination information.
+func (m Model) View() string {
+	slide, _ := m.GetSlide()
+	// offset := 0
+	// if hasHeader {
+	// 	offset = 3
+	// }
+	// return styles.JoinVertical(
+	// 	slide,
+	// 	m.GetStatusLine(),
+	// 	m.viewport.Height-2,
+	// )
+	return slide
 }
 
 func (m *Model) paging() string {
@@ -240,6 +296,84 @@ func (m *Model) paging() string {
 	default:
 		return m.Paging
 	}
+}
+
+func preprocessImages(content string) string {
+	re := regexp.MustCompile(`!\[(.*?)\]\((.*?)\)`)
+	return re.ReplaceAllStringFunc(content, func(match string) string {
+		return fmt.Sprintf("```img\n///%s\n```", strings.Split(match[:len(match)-1], "(")[1])
+	})
+}
+
+// CreateImageFromText takes a string and generates an image.Image of that text using a TrueType font
+func CreateImageFromText(text string, fontSize int) (image.Image, error) {
+	// Load the font
+	fontBytes, err := os.ReadFile("./assets/FiraMono-Regular.ttf") // Change this to the path to your TTF font file
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse the font
+	f, err := freetype.ParseFont(fontBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a new RGBA image
+	img := image.NewRGBA(image.Rect(0, 0, 1920, 3*fontSize/2))
+
+	draw.Draw(img, img.Bounds(), &image.Uniform{image.Transparent}, image.Point{}, draw.Src)
+
+	// Set up the context for drawing
+	c := freetype.NewContext()
+	c.SetDPI(float64(fontSize))
+	c.SetFont(f)
+	c.SetFontSize(float64(fontSize))
+	c.SetClip(img.Bounds())
+	c.SetDst(img)
+	c.SetSrc(image.NewUniform(color.RGBA{R: 255, G: 170, B: 0, A: 255}))
+
+	// Draw the text on the image
+	pt := freetype.Pt(48, fontSize) // Starting point for the text
+	_, err = c.DrawString(text, pt)
+	if err != nil {
+		return nil, err
+	}
+
+	return img, nil
+}
+
+func getFirstHeader(content string) string {
+	// split the content into lines
+	lines := strings.Split(content, "\n")
+
+	for _, line := range lines {
+		if strings.HasPrefix(line, "# ") {
+			return line
+		}
+	}
+	return ""
+}
+
+func (m *Model) preprocessHeaders(content string) (string, string) {
+	// get the first header
+	match := getFirstHeader(content)
+
+	if match == "" {
+		return "", content
+	}
+
+	img, err := CreateImageFromText(strings.TrimSpace(match[2:]), 72)
+	if err != nil {
+		return "", content
+	}
+
+	// remove the header
+	content = strings.Replace(content, match, "", 1)
+
+	imgStr := code.RenderImage(img, m.TerminalProtocol, 3, m.viewport.Width)
+
+	return imgStr, content
 }
 
 func readFile(path string) (string, error) {
@@ -255,6 +389,8 @@ func readFile(path string) (string, error) {
 		return "", err
 	}
 	content := string(b)
+
+	content = preprocessImages(content)
 
 	// Pre-process slides if the file is executable to avoid
 	// unintentional code execution when presenting slides
@@ -302,14 +438,54 @@ func (m *Model) CurrentPage() int {
 	return m.Page
 }
 
+type clearScreenMsg struct{}
+
+func ClearScreen() tea.Msg {
+	return clearScreenMsg{}
+}
+
+func isAutoExecuteLanguage(language string) bool {
+	for _, l := range []string{"qr", "img"} {
+		if l == language {
+			return true
+		}
+	}
+	return false
+}
+
 // SetPage sets which page the presentation should render.
-func (m *Model) SetPage(page int) {
+func (m *Model) SetPage(page int) tea.Cmd {
 	if m.Page == page {
-		return
+		return nil
 	}
 
 	m.VirtualText = ""
 	m.Page = page
+
+	return ClearScreen
+}
+
+func (m *Model) AutoExecuteCode() {
+	// Run code blocks
+	blocks, err := code.Parse(m.Slides[m.Page])
+	if err != nil {
+		// We couldn't parse the code block on the screen
+		m.VirtualText = ""
+		return
+	}
+	var outs []string
+	for _, block := range blocks {
+		if isAutoExecuteLanguage(block.Language) {
+			res := code.Execute(
+				block,
+				m.TerminalProtocol,
+				m.GetAvailableCells(),
+				m.viewport.Width,
+			)
+			outs = append(outs, res.Out)
+		}
+	}
+	m.VirtualText = strings.TrimSpace(strings.Join(outs, "\n"))
 }
 
 // Pages returns all the slides in the presentation.

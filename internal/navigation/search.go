@@ -5,13 +5,14 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/maaslalani/slides/styles"
 )
 
 // Model is an interface for models.model, so that cycle imports are avoided
 type Model interface {
 	CurrentPage() int
-	SetPage(page int)
+	SetPage(page int) tea.Cmd
 	Pages() []string
 }
 

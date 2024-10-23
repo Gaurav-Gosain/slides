@@ -2,6 +2,8 @@ package navigation
 
 import (
 	"testing"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 type mockModel struct {
@@ -13,8 +15,9 @@ func (m *mockModel) CurrentPage() int {
 	return m.page
 }
 
-func (m *mockModel) SetPage(page int) {
+func (m *mockModel) SetPage(page int) tea.Cmd {
 	m.page = page
+	return nil
 }
 
 func (m *mockModel) Pages() []string {
@@ -67,5 +70,4 @@ func TestSearch(t *testing.T) {
 			t.Errorf("[%s] expected page %d, got %d", query.desc, query.expected, m.CurrentPage())
 		}
 	}
-
 }
