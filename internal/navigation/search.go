@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/maaslalani/slides/internal/slides"
 	"github.com/maaslalani/slides/styles"
 )
 
@@ -13,7 +14,7 @@ import (
 type Model interface {
 	CurrentPage() int
 	SetPage(page int) tea.Cmd
-	Pages() []string
+	Pages() []slides.Slide
 }
 
 // Search represents the current search
@@ -73,7 +74,7 @@ func (s *Search) Execute(m Model) {
 		return
 	}
 	check := func(i int) bool {
-		content := m.Pages()[i]
+		content := m.Pages()[i].Content
 		if len(pattern.FindAllStringSubmatch(content, 1)) != 0 {
 			m.SetPage(i)
 			return true

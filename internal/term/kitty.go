@@ -62,7 +62,7 @@ func (o KittyImgOpts) ToHeader(opts ...string) string {
 		opts = append(opts, fmt.Sprintf("z=%d", o.ZIndex))
 	}
 
-	return KITTY_IMG_HDR + strings.Join(opts, ",") + ";"
+	return fmt.Sprintf("%s%s;", KITTY_IMG_HDR, strings.Join(opts, ","))
 }
 
 // checks if terminal supports kitty image protocols

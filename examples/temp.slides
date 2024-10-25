@@ -5,13 +5,6 @@ theme: ./examples/theme.json
 
 ![GoUAE](/home/gaurav/dev/slides/examples/assets/intro-slide.png)
 
-<!--
-- name
-- bsc graduate in comp sci with an hons specializing in Artificial Intelligence
-- application analyst at Zurich Insurance Dubai
-- community leader for the GoUAE community under chq which is a gov initiative for coders in the middle east
--->
-
 ---
 
 ![Agenda](/home/gaurav/dev/slides/examples/assets/agenda.png)
@@ -44,101 +37,27 @@ func main() {
 
 ---
 
-# The creators of Go
-
-## Robert Griesemer
-
-## Rob Pike
-
-## Ken Thompson
+![Go Team](/home/gaurav/dev/slides/examples/assets/go-team.png)
 
 ---
 
-# Why Was Go Created?
-
-## Address limitations of existing languages at Google
-
-## Improve development speed and scalability
-
-## Key goals
-
-### Fast compilation
-
-### Efficient execution
-
-### Easy to write and maintain
+![Why was go created?](/home/gaurav/dev/slides/examples/assets/why-go.png)
 
 ---
 
-# Key Features of Go
-
-## Simplicity and readability
-
-## Fast compilation
-
-## Built-in concurrency (goroutines and channels)
-
-## Garbage collection
-
-## Strong standard library
-
-## Cross-platform support
+![Key Features](/home/gaurav/dev/slides/examples/assets/key-features.png)
 
 ---
 
-# Why Use Go?
-
-## Performance
-
-## Concurrency
-
-## Simplicity
-
-## Fast compilation
-
-## Robust standard library
-
-## Growing ecosystem
-
-## Excellent tooling
+![Why use Go?](/home/gaurav/dev/slides/examples/assets/why-use-go.png)
 
 ---
 
-# Go in Industry: Use Cases
-
-## Cloud and network services
-
-## Web development
-
-## DevOps and site reliability engineering
-
-## Command-line tools
-
-## Distributed systems
-
-## Microservices architecture
+![Go In Industry](/home/gaurav/dev/slides/examples/assets/go-in-industry.png)
 
 ---
 
-# Major Companies Using Go
-
-## Google
-
-## Uber
-
-## Dropbox
-
-## Netflix
-
-## Twitch
-
-## Microsoft
-
-## Amazon
-
-## Docker
-
-## Kubernetes
+![Companies](/home/gaurav/dev/slides/examples/assets/companies.png)
 
 ---
 
@@ -150,33 +69,19 @@ func main() {
 
 ## Kubernetes - Container orchestration system
 
-## Prometheus - Monitoring and alerting toolkit
+## Prometheus - Monitoring and alerting toolkit/timeseries database
 
 ## Hugo - Static site generator
 
 ## Terraform - Infrastructure as code tool
+
+## Ollama - Open source project to easily run LLMs locally
 
 ## CockroachDB - Distributed SQL database
 
 ## Caddy - Web server with automatic HTTPS
 
 ## InfluxDB - Time series database used for metrics, events, and analytics
-
----
-
-# Benefits of Go
-
-## Improved development speed
-
-## Better code maintainability
-
-## Efficient resource utilization
-
-## Scalability for large systems
-
-## Strong performance
-
-## Growing community and ecosystem
 
 ---
 
@@ -188,7 +93,7 @@ func main() {
 
 ## Set up your workspace
 
-```bash
+```sh
 mkdir gouae
 cd gouae
 go mod init gouae
@@ -209,19 +114,11 @@ func main() {
 
 ## Run with `go run filename.go`
 
-```go
-///package main
-///
-///import "fmt"
-///
-///func main() {
-///    fmt.Println("Hello, GoUAE!")
-///}
-```
-
 ---
 
 # Resources for Learning Go
+
+## For Beginners
 
 - [Official Go documentation](https://go.dev/doc)
 - [Tour of Go](https://go.dev/tour/list)

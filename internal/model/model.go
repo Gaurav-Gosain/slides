@@ -19,6 +19,7 @@ import (
 	"github.com/maaslalani/slides/internal/file"
 	"github.com/maaslalani/slides/internal/navigation"
 	"github.com/maaslalani/slides/internal/process"
+	"github.com/maaslalani/slides/internal/slides"
 	"github.com/maaslalani/slides/internal/term"
 
 	"github.com/charmbracelet/bubbles/viewport"
@@ -40,10 +41,12 @@ const (
 	delimiter = "\n---\n"
 )
 
+const headerCells = 3
+
 // Model represents the model of this presentation, which contains all the
 // state related to the current slides.
 type Model struct {
-	Slides   []string
+	Slides   []slides.Slide
 	Page     int
 	Author   string
 	Date     string
@@ -107,7 +110,7 @@ func (m *Model) Load() error {
 		slides = slides[1:]
 	}
 
-	m.Slides = slides
+	m.Slides = m.parseSlides(slides)
 	m.Author = metaData.Author
 	m.Date = metaData.Date
 	m.Paging = metaData.Paging
@@ -118,9 +121,41 @@ func (m *Model) Load() error {
 	return nil
 }
 
+func (m *Model) updateSlides() {
+	for i, slide := range m.Slides {
+		header := slide.Header
+		img := slide.Image
+		headerStr := ""
+		if header != nil {
+			headerStr = code.RenderImage(header, m.TerminalProtocol, headerCells, m.viewport.Width)
+		}
+		imageStr := ""
+		if img != nil {
+			imageStr = code.RenderImage(img, m.TerminalProtocol, m.viewport.Height, m.viewport.Width)
+		}
+		m.Slides[i].HeaderStr = headerStr
+		m.Slides[i].ImageStr = imageStr
+	}
+}
+
+func (m *Model) parseSlides(slidesStr []string) []slides.Slide {
+	newSlides := make([]slides.Slide, len(slidesStr))
+	for i, slide := range slidesStr {
+		header, slide := preprocessHeader(slide)
+		img, slide := preprocessImage(slide)
+		newSlides[i] = slides.Slide{
+			Content: slide,
+			Header:  header,
+			Image:   img,
+		}
+	}
+
+	return newSlides
+}
+
 func (m *Model) ExecuteCode() {
 	// Run code blocks
-	blocks, err := code.Parse(m.Slides[m.Page])
+	blocks, err := code.Parse(m.Slides[m.Page].Content)
 	if err != nil {
 		// We couldn't parse the code block on the screen
 		m.VirtualText = "\n" + err.Error()
@@ -149,14 +184,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.Width = msg.Width
 		m.viewport.Height = msg.Height
 		m.VirtualText = ""
+		m.updateSlides()
 		return m, ClearScreen
-
-	case clearScreenMsg:
-		m.VirtualText = ""
-
-		return m, tea.Sequence(tea.ClearScreen, func() tea.Msg {
-			return autoExecuteCodeMsg{}
-		})
 
 	case autoExecuteCodeMsg:
 		m.AutoExecuteCode()
@@ -204,7 +233,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.ExecuteCode()
 			return m, nil
 		case "y":
-			blocks, err := code.Parse(m.Slides[m.Page])
+			blocks, err := code.Parse(m.Slides[m.Page].Content)
 			if err != nil {
 				return m, nil
 			}
@@ -240,14 +269,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m Model) GetAvailableCells() int {
 	slide, _ := m.GetSlide()
-	return m.viewport.Height - lipgloss.Height(slide) - lipgloss.Height(m.GetStatusLine())
+	return m.viewport.Height - lipgloss.Height(slide)
 }
 
 func (m Model) GetSlide() (string, bool) {
+	currSlide := m.Slides[m.Page]
+
+	if currSlide.Image != nil {
+		return currSlide.ImageStr, true
+	}
+
 	r, _ := glamour.NewTermRenderer(m.Theme, glamour.WithWordWrap(m.viewport.Width))
-	slide := m.Slides[m.Page]
+	slide := currSlide.Content
 	slide = code.HideComments(slide)
-	header, slide := m.preprocessHeaders(slide)
+	header := ""
+	if currSlide.Header != nil {
+		header = currSlide.HeaderStr
+	}
 	slide, err := r.Render(slide)
 	slide = strings.ReplaceAll(slide, "\t", tabSpaces)
 	slide += m.VirtualText
@@ -298,11 +336,36 @@ func (m *Model) paging() string {
 	}
 }
 
-func preprocessImages(content string) string {
+func preprocessImage(content string) (image.Image, string) {
 	re := regexp.MustCompile(`!\[(.*?)\]\((.*?)\)`)
-	return re.ReplaceAllStringFunc(content, func(match string) string {
-		return fmt.Sprintf("```img\n///%s\n```", strings.Split(match[:len(match)-1], "(")[1])
-	})
+	// return re.ReplaceAllStringFunc(content, func(match string) string {
+	// 	return fmt.Sprintf("```img\n///%s\n```", strings.Split(match[:len(match)-1], "(")[1])
+	// })
+
+	// check if there is even an image
+	if !re.MatchString(content) {
+		return nil, content
+	}
+
+	// find the path to the image
+	path := strings.Split(content, "(")[1]
+	path = strings.Split(path, ")")[0]
+
+	imgFile, err := os.Open(path)
+	if err != nil {
+		return nil, content
+	}
+	defer imgFile.Close()
+
+	img, _, err := image.Decode(imgFile)
+	if err != nil {
+		return nil, content
+	}
+
+	// remove the image from the content
+	content = re.ReplaceAllString(content, "")
+
+	return img, content
 }
 
 // CreateImageFromText takes a string and generates an image.Image of that text using a TrueType font
@@ -320,7 +383,7 @@ func CreateImageFromText(text string, fontSize int) (image.Image, error) {
 	}
 
 	// Create a new RGBA image
-	img := image.NewRGBA(image.Rect(0, 0, 1920, 3*fontSize/2))
+	img := image.NewRGBA(image.Rect(0, 0, 2*fontSize*len(text)/3, 3*fontSize/2))
 
 	draw.Draw(img, img.Bounds(), &image.Uniform{image.Transparent}, image.Point{}, draw.Src)
 
@@ -334,7 +397,7 @@ func CreateImageFromText(text string, fontSize int) (image.Image, error) {
 	c.SetSrc(image.NewUniform(color.RGBA{R: 255, G: 170, B: 0, A: 255}))
 
 	// Draw the text on the image
-	pt := freetype.Pt(48, fontSize) // Starting point for the text
+	pt := freetype.Pt(fontSize/2, fontSize) // Starting point for the text
 	_, err = c.DrawString(text, pt)
 	if err != nil {
 		return nil, err
@@ -355,6 +418,22 @@ func getFirstHeader(content string) string {
 	return ""
 }
 
+func preprocessHeader(content string) (image.Image, string) {
+	// get the first header
+	match := getFirstHeader(content)
+
+	if match == "" {
+		return nil, content
+	}
+
+	img, err := CreateImageFromText(strings.TrimSpace(match[2:]), 72)
+	if err != nil {
+		return nil, content
+	}
+
+	return img, strings.Replace(content, match, "", 1)
+}
+
 func (m *Model) preprocessHeaders(content string) (string, string) {
 	// get the first header
 	match := getFirstHeader(content)
@@ -371,7 +450,7 @@ func (m *Model) preprocessHeaders(content string) (string, string) {
 	// remove the header
 	content = strings.Replace(content, match, "", 1)
 
-	imgStr := code.RenderImage(img, m.TerminalProtocol, 3, m.viewport.Width)
+	imgStr := code.RenderImage(img, m.TerminalProtocol, 4, m.viewport.Width)
 
 	return imgStr, content
 }
@@ -390,7 +469,7 @@ func readFile(path string) (string, error) {
 	}
 	content := string(b)
 
-	content = preprocessImages(content)
+	// content = preprocessImages(content)
 
 	// Pre-process slides if the file is executable to avoid
 	// unintentional code execution when presenting slides
@@ -440,9 +519,13 @@ func (m *Model) CurrentPage() int {
 
 type clearScreenMsg struct{}
 
-func ClearScreen() tea.Msg {
-	return clearScreenMsg{}
-}
+var ClearScreen = tea.Sequence(tea.ClearScreen, func() tea.Msg {
+	return autoExecuteCodeMsg{}
+})
+
+// func ClearScreenCmd() tea.Msg {
+// 	return tea.ClearScreen
+// }
 
 func isAutoExecuteLanguage(language string) bool {
 	for _, l := range []string{"qr", "img"} {
@@ -467,7 +550,7 @@ func (m *Model) SetPage(page int) tea.Cmd {
 
 func (m *Model) AutoExecuteCode() {
 	// Run code blocks
-	blocks, err := code.Parse(m.Slides[m.Page])
+	blocks, err := code.Parse(m.Slides[m.Page].Content)
 	if err != nil {
 		// We couldn't parse the code block on the screen
 		m.VirtualText = ""
@@ -489,6 +572,6 @@ func (m *Model) AutoExecuteCode() {
 }
 
 // Pages returns all the slides in the presentation.
-func (m *Model) Pages() []string {
+func (m *Model) Pages() []slides.Slide {
 	return m.Slides
 }

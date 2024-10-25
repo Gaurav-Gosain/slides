@@ -78,14 +78,18 @@ func RenderImage(img image.Image, terminal term.TerminalProtocol, availableCells
 
 	aspectRatio := 2.2 * float64(img.Bounds().Dx()) / float64(img.Bounds().Dy())
 
-	rows := float64(availableCells)
-	cols := float64(rows) * aspectRatio
+	// rows := float64(availableCells)
 
-	if cols > float64(width) {
-		cols = float64(width)
-		// recalculate rows
-		rows = cols / aspectRatio
+	cols := float64(width)
+	rows := cols / aspectRatio
+
+	if rows > float64(availableCells) {
+		rows = float64(availableCells)
+		cols = rows * aspectRatio
 	}
+
+	// calculate the vertical cells to pad on top to center image
+	yPadding := max(int(float64(availableCells)/2-(rows/2)), 0)
 
 	switch terminal {
 	case term.Kitty:
@@ -105,7 +109,7 @@ func RenderImage(img image.Image, terminal term.TerminalProtocol, availableCells
 	default:
 		// 	ansi art
 	}
-	return buff.String()
+	return fmt.Sprintf("\033[%dB", yPadding) + buff.String()
 }
 
 // Execute takes a code.Block and returns the output of the executed code
