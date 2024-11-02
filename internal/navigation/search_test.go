@@ -4,10 +4,11 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/maaslalani/slides/internal/slides"
 )
 
 type mockModel struct {
-	slides []string
+	slides []slides.Slide
 	page   int
 }
 
@@ -20,19 +21,19 @@ func (m *mockModel) SetPage(page int) tea.Cmd {
 	return nil
 }
 
-func (m *mockModel) Pages() []string {
+func (m *mockModel) Pages() []slides.Slide {
 	return m.slides
 }
 
 func TestSearch(t *testing.T) {
-	data := []string{
-		"hi",
-		"first",
-		"second",
-		"third",
-		"AbCdEfG",
-		"abcdefg",
-		"seconds",
+	data := []slides.Slide{
+		{Content: "hi"},
+		{Content: "first"},
+		{Content: "second"},
+		{Content: "third"},
+		{Content: "AbCdEfG"},
+		{Content: "abcdefg"},
+		{Content: "seconds"},
 	}
 
 	type query struct {
